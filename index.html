@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ตารางงานพนักงาน (Dark Mode - Print A4 Ready)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            padding: 20px;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: fit-content;
+            min-width: 600px;
+            max-width: 100%;
+            border: 1px solid #333;
+        }
+
+        /* ===== Header ===== */
+        .header-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 20px;
+        }
+
+        .header-top {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        h1 { color: #ffffff; margin: 0; font-size: 1.5rem; }
+
+        .print-only-header {
+            display: none;
+            text-align: center;
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #ffffff;
+        }
+
+        /* ===== Controls ===== */
+        .controls-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        select, button, input[type="text"] {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            font-family: 'Sarabun', sans-serif;
+            font-size: 0.9rem;
+            background-color: #2d2d2d;
+            color: #ffffff;
+        }
+
+        select:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        button:hover  { opacity: 0.85; }
+        button:active { transform: scale(0.97); }
+
+        button.save-btn  { background-color: #2563eb; color: white; border: none; }
+        button.print-btn { background-color: #4b5563; color: white; border: none; }
+        button.add-btn   { background-color: #059669; color: white; border: none; }
+
+        .add-employee-box {
+            background-color: #1a2e23;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #064e3b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: fit-content;
+        }
+
+        /* ===== Save toast ===== */
+        #saveToast {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            background: #059669;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        #saveToast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ===== Legend ===== */
+        .legend {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            font-size: 0.82rem;
+            padding: 10px 14px;
+            background-color: #252525;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .legend-item { display: flex; align-items: center; gap: 6px; color: #bbb; }
+        .dot { width: 14px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+        .dot-work         { background-color: #064e3b; }
+        .dot-work-holiday { background-color: #1e3a8a; }
+        .dot-off-mon      { background-color: #4a1d1d; }
+        .dot-off-extra    { background-color: #7c2d12; }
+        .dot-sick         { background-color: #7f1d1d; }
+        .dot-leave        { background-color: #78350f; }
+        .dot-vacation     { background-color: #7c2d12; }
+        .dot-ot           { background-color: #0f4c2a; border: 1px solid #22c55e; }
+        .dot-holiday      { background-color: #7f1d1d; }
+
+        /* ===== Table ===== */
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: auto;
+            background-color: #1e1e1e;
+        }
+
+        th, td {
+            padding: 4px;
+            text-align: center;
+            border: 1px solid #333;
+            vertical-align: middle;
+            font-size: 0.82rem;
+        }
+
+        th { background-color: #2c2c2c; color: #fff; }
+
+        .date-col { width: 32px;  font-weight: 600; background-color: #262626; color: #ddd; }
+        .day-col  { width: 85px; background-color: #262626; color: #ddd; }
+
+        /* ===== Employee header ===== */
+        .emp-header-cell { width: 110px; padding: 4px; }
+
+        .emp-name-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 60px;
+            gap: 4px;
+        }
+
+        .emp-name-input {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            text-align: center;
+            font-family: 'Sarabun', sans-serif;
+            font-weight: 600;
+            font-size: 12px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            width: 100%;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .emp-name-input:focus {
+            background: #ffffff;
+            color: #000000;
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .delete-btn {
+            background: #7f1d1d;
+            color: #fca5a5;
+            border: none;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.62rem;
+            cursor: pointer;
+            line-height: 1.5;
+            transition: background 0.15s;
+        }
+        .delete-btn:hover { background: #b91c1c; color: #fff; opacity: 1; }
+
+        /* ===== Day styles ===== */
+        .day-sun { color: #f87171; font-weight: bold; }
+        .day-sat { color: #a78bfa; font-weight: bold; }
+
+        .day-holiday {
+            color: #ffffff !important;
+            font-weight: 800;
+            background-color: #7f1d1d !important;
+            border-color: #991b1b;
+        }
+
+        .holiday-label {
+            display: block;
+            font-size: 0.58rem;
+            color: #fecaca;
+            font-weight: bold;
+            line-height: 1.2;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 80px;
+        }
+
+        /* ===== Status select ===== */
+        .status-select {
+            width: 100%;
+            padding: 3px 2px;
+            border: none;
+            border-radius: 4px;
+            font-family: 'Sarabun', sans-serif;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.75rem;
+            -webkit-appearance: none;
+            appearance: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+            border-top: 1px solid rgba(255,255,255,0.12);
+            border-bottom: 1px solid rgba(0,0,0,0.4);
+        }
+
+        .val-work         { background-color: #064e3b; color: #a7f3d0; }
+        .val-work-holiday { background-color: #1e3a8a; color: #bfdbfe; }
+        .val-off-mon      { background-color: #4a1d1d; color: #fecaca; }
+        .val-off-extra    { background-color: #7c2d12; color: #fed7aa; }
+        .val-sick         { background-color: #7f1d1d; color: #fecaca; }
+        .val-leave        { background-color: #78350f; color: #fde68a; }
+        .val-vacation     { background-color: #7c2d12; color: #fed7aa; }
+
+        .val-ot           { background-color: #0f4c2a; color: #86efac; border: 1px solid #22c55e; }
+
+        /* div ที่ใช้แทน select ตอนปริ้น */
+        .status-print-div {
+            width: 100%;
+            height: 100%;
+            min-height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Sarabun', sans-serif;
+            font-weight: 600;
+            font-size: 6pt;
+            border-radius: 2px;
+            text-align: center;
+            padding: 1px;
+        }
+
+        /* ===== Summary rows ===== */
+        .summary-row td {
+            font-size: 0.72rem;
+            font-weight: 600;
+            background-color: #252525;
+            color: #ccc;
+            padding: 4px 3px;
+            line-height: 1.5;
+        }
+        .summary-row .label-cell {
+            background-color: #1e1e1e;
+            color: #777;
+            font-size: 0.7rem;
+            text-align: left;
+            padding-left: 6px;
+            border-right: 1px solid #3a3a3a;
+        }
+        .summary-head-row td {
+            background-color: #1a1a1a;
+            color: #666;
+            font-size: 0.68rem;
+            padding: 5px 3px;
+            border-top: 2px solid #3a3a3a;
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 768px) {
+            .container { padding: 10px; min-width: 100%; }
+        }
+
+        /* ===== Print (Dark Mode A4 Portrait) ===== */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 5mm;
+            }
+
+            * { box-sizing: border-box; }
+
+            html {
+                /* บังคับ zoom 100% */
+                zoom: 1 !important;
+                -webkit-text-size-adjust: 100%;
+            }
+
+            html, body {
+                width: 100%; height: 100%;
+                background-color: #121212 !important;
+                color: #e0e0e0 !important;
+                padding: 0; margin: 0;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .container {
+                background-color: #121212 !important;
+                box-shadow: none;
+                width: 100%; max-width: 100%; height: 100%;
+                padding: 0; border: none; border-radius: 0; min-width: unset;
+                display: flex; flex-direction: column;
+            }
+
+            /* ซ่อนสิ่งที่ไม่ต้องการ */
+            #saveToast, .header-section, .legend, tfoot { display: none !important; }
+
+            /* หัวพิมพ์ */
+            .print-only-header {
+                display: block !important;
+                color: #ffffff !important;
+                font-size: 13pt;
+                font-weight: bold;
+                text-align: center;
+                padding: 2mm 0 1.5mm;
+                flex-shrink: 0;
+            }
+
+            /* table-wrapper ยืดเต็มพื้นที่ */
+            .table-wrapper {
+                overflow: visible; border: none; border-radius: 0;
+                width: 100%; flex: 1;
+                display: flex; flex-direction: column;
+            }
+
+            table {
+                width: 100%; height: 100%;
+                table-layout: fixed;
+                background-color: #1e1e1e !important;
+                border: 1px solid #555 !important;
+                border-collapse: collapse;
+                font-size: 10pt;
+            }
+
+            thead { display: table-header-group; }
+            tbody { display: table-row-group; }
+
+            th, td {
+                border: 1px solid #555 !important;
+                color: #e0e0e0 !important;
+                padding: 1px 2px;
+                overflow: hidden;
+                text-align: center;
+                vertical-align: middle;
+                font-size: 10pt;
+            }
+
+            th {
+                background-color: #2c2c2c !important;
+                color: #ffffff !important;
+                font-size: 10pt;
+            }
+
+            .date-col {
+                width: 4% !important;
+                background-color: #262626 !important;
+                color: #ddd !important;
+            }
+            .day-col {
+                width: 10% !important;
+                background-color: #262626 !important;
+                color: #ddd !important;
+            }
+
+            .emp-header-cell { padding: 2px 1px !important; }
+            .emp-name-wrapper {
+                height: auto !important;
+                gap: 0 !important;
+                padding: 1px 0 !important;
+                min-height: unset !important;
+            }
+            .emp-name-input {
+                border: none !important;
+                color: #ffffff !important;
+                font-weight: bold;
+                background: transparent !important;
+                font-size: 9pt !important;
+                white-space: normal;
+                word-break: break-word;
+                width: 100%;
+                text-align: center;
+                display: block;
+                line-height: 1.3;
+            }
+            .delete-btn { display: none !important; }
+
+            .day-holiday  { background-color: #7f1d1d !important; color: #ffffff !important; }
+            .holiday-label {
+                color: #fecaca !important;
+                font-size: 7pt !important;
+                display: block; line-height: 1.2;
+            }
+            .day-sun { color: #f87171 !important; }
+            .day-sat { color: #a78bfa !important; }
+
+            .status-select { display: none !important; }
+
+            .status-print-div {
+                font-size: 10pt !important;
+                font-weight: 600 !important;
+                width: 100% !important;
+                height: 100% !important;
+                min-height: 18px;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border-radius: 3px !important;
+                padding: 1px 2px !important;
+                line-height: 1.2;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15) !important;
+                border-top: 1px solid rgba(255,255,255,0.12) !important;
+                border-bottom: 1px solid rgba(0,0,0,0.4) !important;
+            }
+
+            .val-work         { background-color: #064e3b !important; color: #a7f3d0 !important; }
+            .val-work-holiday { background-color: #1e3a8a !important; color: #bfdbfe !important; }
+            .val-off-mon      { background-color: #4a1d1d !important; color: #fecaca !important; }
+            .val-off-extra    { background-color: #7c2d12 !important; color: #fed7aa !important; }
+            .val-sick         { background-color: #7f1d1d !important; color: #fecaca !important; }
+            .val-leave        { background-color: #78350f !important; color: #fde68a !important; }
+            .val-vacation     { background-color: #7c2d12 !important; color: #fed7aa !important; }
+            .val-ot           { background-color: #0f4c2a !important; color: #86efac !important; border: 1px solid #22c55e !important; }
+        }
+
+        /* ===== ส่วนเพิ่มสำหรับเวอร์ชัน Google Sheet ===== */
+        button.import-btn { background-color: #7c3aed; color: white; border: none; }
+        button:disabled   { opacity: 0.5; cursor: not-allowed; }
+
+        .save-status {
+            font-size: 0.8rem; padding: 4px 10px; border-radius: 999px;
+            background: #2d2d2d; border: 1px solid #444; color: #aaa; white-space: nowrap;
+        }
+        .save-status.ok     { color: #6ee7b7; border-color: #065f46; }
+        .save-status.dirty  { color: #fde68a; border-color: #78350f; }
+        .save-status.saving { color: #93c5fd; border-color: #1e3a8a; }
+        .save-status.error  { color: #fecaca; border-color: #7f1d1d; background: #3b1515; }
+
+        .sub-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+
+        .month-notice {
+            font-size: 0.82rem; color: #fde68a; background: #2a2210;
+            border: 1px solid #78350f; border-radius: 8px; padding: 6px 12px;
+        }
+
+        #loading {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+            display: none; align-items: center; justify-content: center; z-index: 9998;
+            color: #fff; font-size: 1rem; font-weight: 600;
+        }
+        #loading.show { display: flex; }
+        #loading .box { background: #1e1e1e; border: 1px solid #333; padding: 18px 28px; border-radius: 12px; }
+
+        #saveToast.error { background: #b91c1c; }
+
+        @media print {
+            #loading, .month-notice { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div id="printMonthHeader" class="print-only-header">ตารางงานประจำเดือน</div>
+
+    <div class="header-section">
+        <div class="header-top">
+            <h1 id="pageTitle">ตารางงานพนักงาน</h1>
+            <div class="controls-group">
+                <select id="monthSelect" title="เลือกเดือน"></select>
+                <select id="yearSelect" title="เลือกปี"></select>
+                <button class="save-btn" id="saveBtn" onclick="saveNow()">💾 บันทึก</button>
+                <button class="print-btn" onclick="window.print()">🖨️ พิมพ์</button>
+                <button class="import-btn" onclick="document.getElementById('importFile').click()" title="นำเข้าข้อมูลจากไฟล์ HTML เวอร์ชันเก่า">📥 นำเข้าไฟล์เดิม</button>
+                <button class="print-btn" id="sheetBtn" style="display:none" title="เปิด Google Sheet (มีชีตสรุปวันลารายไตรมาส)">📊 ชีต / สรุปวันลา</button>
+                <input type="file" id="importFile" accept=".html,.htm" style="display:none">
+            </div>
+        </div>
+        <div class="sub-row">
+            <div class="add-employee-box">
+                <input type="text" id="newEmpName" placeholder="ชื่อพนักงานใหม่" onkeydown="if(event.key==='Enter') addEmployee()">
+                <button class="add-btn" onclick="addEmployee()">+ เพิ่มพนักงาน</button>
+            </div>
+            <span id="saveStatus" class="save-status">กำลังโหลด…</span>
+        </div>
+        <div id="monthNotice" class="month-notice" style="display:none"></div>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item"><span class="dot dot-work"></span> ทำงาน</div>
+        <div class="legend-item"><span class="dot dot-work-holiday"></span> ทำงานวันหยุด</div>
+        <div class="legend-item"><span class="dot dot-off-mon"></span> หยุดประจำ</div>
+        <div class="legend-item"><span class="dot dot-off-extra"></span> หยุดพิเศษ</div>
+        <div class="legend-item"><span class="dot dot-sick"></span> ลาป่วย</div>
+        <div class="legend-item"><span class="dot dot-leave"></span> ลากิจ</div>
+        <div class="legend-item"><span class="dot dot-vacation"></span> ลาพักร้อน</div>
+        <div class="legend-item"><span class="dot dot-ot"></span> OT พิเศษ</div>
+        <div class="legend-item"><span class="dot dot-holiday"></span> วันหยุดนักขัตฤกษ์</div>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr id="headerRow">
+                    <th class="date-col">วันที่</th>
+                    <th class="day-col">วัน</th>
+                </tr>
+            </thead>
+            <tbody id="scheduleBody"></tbody>
+            <tfoot id="summaryFoot"></tfoot>
+        </table>
+    </div>
+</div>
+
+<div id="saveToast">✅ บันทึกเรียบร้อย!</div>
+<div id="loading"><div class="box" id="loadingText">⏳ กำลังโหลด…</div></div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   ค่าคงที่
+   ========================================================= */
+const DAY_NAMES   = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+const MONTH_NAMES = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+                     'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+const STATUS_OPTIONS = [
+    ['work',         'ทำงาน'],
+    ['work-holiday', 'ทำงานวันหยุด'],
+    ['off-mon',      'หยุดประจำ'],
+    ['off-extra',    'หยุดพิเศษ'],
+    ['sick',         'ลาป่วย'],
+    ['leave',        'ลากิจ'],
+    ['vacation',     'ลาพักร้อน'],
+    ['ot',           'OT พิเศษ'],
+];
+const STATUS_LABEL = Object.fromEntries(STATUS_OPTIONS);
+
+const SUMMARY_ROWS = [
+    { key: 'work',         label: 'ทำงาน',       color: '#6ee7b7' },
+    { key: 'work-holiday', label: 'ทำงานวันหยุด', color: '#93c5fd' },
+    { key: 'off-mon',      label: 'หยุดประจำ',    color: '#fca5a5' },
+    { key: 'off-extra',    label: 'หยุดพิเศษ',    color: '#fdba74' },
+    { key: 'sick',         label: 'ลาป่วย',        color: '#fca5a5' },
+    { key: 'leave',        label: 'ลากิจ',         color: '#fde68a' },
+    { key: 'vacation',     label: 'ลาพักร้อน',     color: '#fdba74' },
+    { key: 'ot',           label: 'OT พิเศษ',      color: '#86efac' },
+];
+
+const AUTOSAVE_MS = 1500;   // บันทึกอัตโนมัติหลังแก้ไข 1.5 วินาที
+
+/* =========================================================
+   State
+   ========================================================= */
+let holidays    = {};          // { 'YYYY-M-D': 'ชื่อวันหยุด' }   (M = 1..12)
+let savedMonths = new Set();   // { 'YYYY-M' }
+let cur = null;                // { year, month(1..12), employees[], days{d:[status]}, saved }
+
+let editVersion = 0, savedVersion = 0;
+let saving = null;             // Promise ของการบันทึกที่กำลังทำ
+let autosaveTimer = null;
+
+/* =========================================================
+   DOM
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const monthSelect = $('monthSelect'), yearSelect = $('yearSelect');
+const scheduleBody = $('scheduleBody'), headerRow = $('headerRow'), summaryFoot = $('summaryFoot');
+const newEmpInput = $('newEmpName'), printMonthHeader = $('printMonthHeader');
+const saveToast = $('saveToast'), saveStatus = $('saveStatus'), monthNotice = $('monthNotice');
+
+/* =========================================================
+   ⚙️ ตั้งค่า: วางลิงก์ Web App ของ Google Apps Script (ลงท้ายด้วย /exec)
+   ========================================================= */
+const GAS_URL = 'PASTE_YOUR_WEB_APP_URL_HERE';
+
+/* =========================================================
+   เรียก Apps Script ผ่าน fetch (JSON API)
+   - ใช้ Content-Type: text/plain เพื่อไม่ให้ติด CORS preflight
+   - ถ้าตั้ง API_KEY ไว้ในสคริปต์ หน้าเว็บจะถามรหัสครั้งแรกแล้วจำไว้ในเบราว์เซอร์
+   ========================================================= */
+const KEY_STORE = 'empSchedule.apiKey';
+function getKey()  { try { return localStorage.getItem(KEY_STORE) || ''; } catch (e) { return ''; } }
+function setKey(k) { try { localStorage.setItem(KEY_STORE, k); } catch (e) {} }
+
+async function api(fn, ...args) {
+    if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(GAS_URL)) {
+        throw new Error('ยังไม่ได้ตั้งค่า GAS_URL ในไฟล์ index.html');
+    }
+    for (let attempt = 0; attempt < 3; attempt++) {
+        let res;
+        try {
+            res = await fetch(GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ fn, args, key: getKey() }),
+                redirect: 'follow',
+            });
+        } catch (err) {
+            throw new Error('เชื่อมต่อ Apps Script ไม่ได้ (ตรวจว่า Deploy แบบ "ทุกคน/Anyone" และลิงก์ถูกต้อง)');
+        }
+        let j;
+        try { j = await res.json(); }
+        catch (err) { throw new Error('Apps Script ตอบกลับไม่ใช่ JSON (HTTP ' + res.status + ') — ตรวจการ Deploy'); }
+
+        if (j.ok) return j.data;
+        if (j.error === 'unauthorized') {
+            hideLoading();
+            const k = prompt(attempt === 0 && !getKey() ? '🔒 กรุณาใส่รหัสผ่านสำหรับตารางงาน' : '❌ รหัสผ่านไม่ถูกต้อง ลองอีกครั้ง');
+            if (k === null) throw new Error('ต้องใส่รหัสผ่านก่อนใช้งาน');
+            setKey(k.trim());
+            continue;
+        }
+        throw new Error(j.error || 'เกิดข้อผิดพลาด');
+    }
+    throw new Error('รหัสผ่านไม่ถูกต้อง');
+}
+
+/* =========================================================
+   Helpers
+   ========================================================= */
+const isDirty          = () => editVersion !== savedVersion;
+const daysInMonth      = (y, m) => new Date(y, m, 0).getDate();      // m = 1..12
+const dayOfWeek        = (y, m, d) => new Date(y, m - 1, d).getDay();
+const holidayName      = (y, m, d) => holidays[`${y}-${m}-${d}`] || null;
+const defaultStatus    = (y, m, d) => dayOfWeek(y, m, d) === 1 ? 'off-mon' : 'work';
+
+function showLoading(text) { $('loadingText').textContent = text || '⏳ กำลังโหลด…'; $('loading').classList.add('show'); }
+function hideLoading()     { $('loading').classList.remove('show'); }
+
+function toast(msg, isError) {
+    saveToast.textContent = msg;
+    saveToast.classList.toggle('error', !!isError);
+    saveToast.classList.add('show');
+    setTimeout(() => saveToast.classList.remove('show'), isError ? 5000 : 2500);
+}
+
+function setStatus(kind, text) {
+    saveStatus.className = 'save-status ' + kind;
+    saveStatus.textContent = text;
+}
+
+/* =========================================================
+   Dropdown ปี / เดือน (สร้างใหม่จาก JS ทุกครั้ง → ไม่มีวันซ้ำ)
+   ========================================================= */
+function buildYearOptions(selectedYear) {
+    const nowY  = new Date().getFullYear();
+    const years = new Set([nowY - 1, nowY, nowY + 1, selectedYear]);
+    savedMonths.forEach(k => years.add(Number(k.split('-')[0])));
+    yearSelect.innerHTML = '';
+    [...years].sort((a, b) => a - b).forEach(y => {
+        const o = document.createElement('option');
+        o.value = y; o.textContent = `ปี ${y}`;
+        if (y === selectedYear) o.selected = true;
+        yearSelect.appendChild(o);
+    });
+}
+
+function buildMonthOptions(year, selectedMonth) {
+    monthSelect.innerHTML = '';
+    MONTH_NAMES.forEach((name, i) => {
+        const m = i + 1;
+        const o = document.createElement('option');
+        o.value = m;
+        o.textContent = `${name} ${year}` + (savedMonths.has(`${year}-${m}`) ? '  ✓' : '');
+        if (m === selectedMonth) o.selected = true;
+        monthSelect.appendChild(o);
+    });
+}
+
+function refreshSelectors() {
+    if (!cur) return;
+    buildYearOptions(cur.year);
+    buildMonthOptions(cur.year, cur.month);
+}
+
+/* =========================================================
+   โหลด / บันทึก
+   ========================================================= */
+async function loadMonth(year, month) {
+    showLoading(`⏳ กำลังโหลด ${MONTH_NAMES[month - 1]} ${year}…`);
+    try {
+        const res = await api('getMonth', year, month);
+        cur = { year, month, employees: res.employees, days: res.days || {}, saved: res.saved };
+        normalizeMonth();
+        editVersion = savedVersion = 0;
+        refreshSelectors();
+        renderTable();
+        if (cur.saved) setStatus('ok', '✓ ข้อมูลจาก Google Sheet');
+        else           setStatus('', 'เดือนนี้ยังไม่ได้บันทึก');
+    } catch (err) {
+        setStatus('error', '⚠ โหลดไม่สำเร็จ');
+        toast('⚠ โหลดไม่สำเร็จ: ' + (err.message || err), true);
+    } finally {
+        hideLoading();
+    }
+}
+
+/** เติมค่าเริ่มต้นให้วัน/คนที่ยังไม่มีข้อมูล */
+function normalizeMonth() {
+    const { year: y, month: m } = cur;
+    for (let d = 1; d <= daysInMonth(y, m); d++) {
+        const arr = cur.days[d] || [];
+        cur.days[d] = cur.employees.map((_, i) => arr[i] || defaultStatus(y, m, d));
+    }
+}
+
+function markDirty() {
+    editVersion++;
+    setStatus('dirty', '● มีการแก้ไข — กำลังรอบันทึกอัตโนมัติ…');
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => saveNow(true), AUTOSAVE_MS);
+}
+
+/** บันทึกเดือนที่เปิดอยู่ลง Google Sheet (คืนค่า true ถ้าสำเร็จ) */
+async function saveNow(isAuto) {
+    clearTimeout(autosaveTimer);
+    if (saving) { await saving; if (!isDirty()) return true; }
+    if (!cur) return false;
+    if (isAuto && !isDirty()) return true;
+
+    const version = editVersion;
+    const payload = JSON.parse(JSON.stringify({
+        year: cur.year, month: cur.month, employees: cur.employees, days: cur.days
+    }));
+
+    setStatus('saving', '⏳ กำลังบันทึก…');
+    $('saveBtn').disabled = true;
+    saving = api('saveMonth', payload);
+    try {
+        const res = await saving;
+        savedVersion = version;
+        cur.saved = true;
+        savedMonths = new Set(res.savedMonths);
+        refreshSelectors();
+        monthNotice.style.display = 'none';
+        if (isDirty()) {
+            setStatus('dirty', '● มีการแก้ไขเพิ่ม — กำลังรอบันทึก…');
+            autosaveTimer = setTimeout(() => saveNow(true), AUTOSAVE_MS);
+        } else {
+            const t = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            setStatus('ok', `✓ บันทึกแล้ว ${t}`);
+        }
+        if (!isAuto) toast('✅ บันทึกลง Google Sheet เรียบร้อย!');
+        return true;
+    } catch (err) {
+        setStatus('error', '⚠ บันทึกไม่สำเร็จ — กด 💾 บันทึก อีกครั้ง');
+        toast('⚠ บันทึกไม่สำเร็จ: ' + (err.message || err), true);
+        return false;
+    } finally {
+        saving = null;
+        $('saveBtn').disabled = false;
+    }
+}
+
+/** เปลี่ยนเดือน/ปี — บันทึกของเดิมก่อนเสมอ */
+async function changeMonth(year, month) {
+    if (isDirty() || saving) {
+        const ok = await saveNow(true);
+        if (!ok) { refreshSelectors(); return; }   // บันทึกไม่ได้ → อยู่เดือนเดิม ข้อมูลไม่หาย
+    }
+    await loadMonth(year, month);
+}
+
+monthSelect.addEventListener('change', () => changeMonth(cur.year, Number(monthSelect.value)));
+yearSelect.addEventListener('change',  () => changeMonth(Number(yearSelect.value), cur.month));
+
+window.addEventListener('beforeunload', e => {
+    if (isDirty() || saving) { e.preventDefault(); e.returnValue = ''; }
+});
+
+/* =========================================================
+   Render
+   ========================================================= */
+function makeSelectCell(d, empIdx) {
+    const td  = document.createElement('td');
+    const sel = document.createElement('select');
+    const status = cur.days[d][empIdx];
+
+    sel.className = `status-select val-${status}`;
+    STATUS_OPTIONS.forEach(([val, label]) => {
+        const opt = document.createElement('option');
+        opt.value = val; opt.textContent = label;
+        if (val === status) opt.selected = true;
+        sel.appendChild(opt);
+    });
+    sel.addEventListener('change', () => {
+        cur.days[d][empIdx] = sel.value;
+        sel.className = `status-select val-${sel.value}`;
+        updateSummary();
+        markDirty();
+    });
+    td.appendChild(sel);
+    return td;
+}
+
+function renderTable() {
+    const { year: y, month: m, employees } = cur;
+    const title = `${MONTH_NAMES[m - 1]} ${y}`;
+    $('pageTitle').textContent = `ตารางงานพนักงาน ${y}`;
+    printMonthHeader.textContent = `ตารางงานประจำเดือน ${title}`;
+    document.title = `ตารางงาน ${title}`;
+
+    if (!cur.saved) {
+        monthNotice.textContent = `ℹ️ ${title} ยังไม่มีข้อมูลในชีต — แสดงค่าเริ่มต้น (รายชื่อพนักงานคัดลอกจากเดือนก่อนหน้า) จะบันทึกเมื่อมีการแก้ไขหรือกด 💾 บันทึก`;
+        monthNotice.style.display = '';
+    } else {
+        monthNotice.style.display = 'none';
+    }
+
+    // Header
+    while (headerRow.children.length > 2) headerRow.removeChild(headerRow.lastChild);
+    employees.forEach((emp, idx) => {
+        const th = document.createElement('th');
+        th.className = 'emp-header-cell';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'emp-name-wrapper';
+        const input = document.createElement('input');
+        input.className = 'emp-name-input';
+        input.type = 'text';
+        input.value = emp;
+        input.title = emp;
+        input.addEventListener('input', () => {
+            cur.employees[idx] = input.value; input.title = input.value; markDirty();
+        });
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn';
+        delBtn.textContent = '✕ ลบ';
+        delBtn.title = `ลบ ${emp} (เฉพาะเดือนนี้)`;
+        delBtn.addEventListener('click', () => deleteEmployee(idx));
+        wrapper.append(input, delBtn);
+        th.appendChild(wrapper);
+        headerRow.appendChild(th);
+    });
+
+    // Body
+    scheduleBody.innerHTML = '';
+    for (let d = 1; d <= daysInMonth(y, m); d++) {
+        const dow = dayOfWeek(y, m, d);
+        const holiday = holidayName(y, m, d);
+        const tr = document.createElement('tr');
+
+        const tdDate = document.createElement('td');
+        tdDate.className = 'date-col';
+        tdDate.textContent = d;
+
+        const tdDay = document.createElement('td');
+        tdDay.className = 'day-col';
+        if (dow === 0) tdDay.classList.add('day-sun');
+        if (dow === 6) tdDay.classList.add('day-sat');
+        if (holiday)  tdDay.classList.add('day-holiday');
+        tdDay.textContent = DAY_NAMES[dow];
+        if (holiday) {
+            const span = document.createElement('span');
+            span.className = 'holiday-label';
+            span.textContent = holiday;
+            span.title = holiday;
+            tdDay.appendChild(span);
+        }
+
+        tr.append(tdDate, tdDay);
+        employees.forEach((_, i) => tr.appendChild(makeSelectCell(d, i)));
+        scheduleBody.appendChild(tr);
+    }
+
+    updateSummary();
+}
+
+function updateSummary() {
+    const { year: y, month: m, employees } = cur;
+    summaryFoot.innerHTML = '';
+
+    const counts = employees.map(() => Object.fromEntries(SUMMARY_ROWS.map(r => [r.key, 0])));
+    for (let d = 1; d <= daysInMonth(y, m); d++) {
+        employees.forEach((_, i) => {
+            const s = cur.days[d][i] || 'work';
+            if (counts[i][s] !== undefined) counts[i][s]++;
+        });
+    }
+
+    const trHead = document.createElement('tr');
+    trHead.className = 'summary-head-row';
+    const thHead = document.createElement('td');
+    thHead.colSpan = 2;
+    thHead.textContent = '📊 สรุปประจำเดือน';
+    thHead.style.cssText = 'text-align:left;padding-left:8px;color:#888;';
+    trHead.appendChild(thHead);
+    employees.forEach(() => trHead.appendChild(document.createElement('td')));
+    summaryFoot.appendChild(trHead);
+
+    SUMMARY_ROWS.forEach(({ key, label, color }) => {
+        const hasAny = counts.some(c => c[key] > 0);
+        if (!hasAny && ['sick', 'leave', 'vacation', 'off-extra'].includes(key)) return;
+
+        const tr = document.createElement('tr');
+        tr.className = 'summary-row';
+        const tdLabel = document.createElement('td');
+        tdLabel.colSpan = 2;
+        tdLabel.className = 'label-cell';
+        tdLabel.textContent = label;
+        tr.appendChild(tdLabel);
+
+        employees.forEach((_, i) => {
+            const td = document.createElement('td');
+            const val = counts[i][key] || 0;
+            td.textContent = val > 0 ? `${val} วัน` : '—';
+            td.style.color = val > 0 ? color : '#444';
+            td.style.fontWeight = val > 0 ? '700' : '400';
+            tr.appendChild(td);
+        });
+        summaryFoot.appendChild(tr);
+    });
+}
+
+/* =========================================================
+   เพิ่ม / ลบพนักงาน (มีผลเฉพาะเดือนที่เปิดอยู่ — เดือนเก่าไม่เปลี่ยน)
+   ========================================================= */
+function addEmployee() {
+    if (!cur) return;
+    const name = newEmpInput.value.trim();
+    if (!name) { newEmpInput.focus(); return; }
+    cur.employees.push(name);
+    newEmpInput.value = '';
+    for (let d = 1; d <= daysInMonth(cur.year, cur.month); d++) {
+        cur.days[d].push(defaultStatus(cur.year, cur.month, d));
+    }
+    renderTable();
+    markDirty();
+}
+
+function deleteEmployee(index) {
+    const title = `${MONTH_NAMES[cur.month - 1]} ${cur.year}`;
+    if (!confirm(`ลบ "${cur.employees[index]}" ออกจากตารางเดือน ${title}?\n(ข้อมูลเดือนอื่นจะไม่ถูกลบ)`)) return;
+    cur.employees.splice(index, 1);
+    for (const d in cur.days) cur.days[d].splice(index, 1);
+    renderTable();
+    markDirty();
+}
+
+/* =========================================================
+   นำเข้าข้อมูลจากไฟล์ HTML เวอร์ชันเก่า (ที่เคย "บันทึก HTML")
+   ========================================================= */
+$('importFile').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+
+    let parsed;
+    try {
+        parsed = parseOldHtml(await file.text());
+    } catch (err) {
+        alert('อ่านไฟล์ไม่ได้: ' + err.message);
+        return;
+    }
+
+    const { year, list } = parsed;
+    if (!list.length) { alert('ไม่พบข้อมูลตารางในไฟล์นี้'); return; }
+
+    const names = list.map(p => MONTH_NAMES[p.month - 1]).join(', ');
+    const exist = list.filter(p => savedMonths.has(`${p.year}-${p.month}`));
+    if (!confirm(`พบข้อมูลปี ${year} จำนวน ${list.length} เดือน:\n${names}\n\nพนักงาน: ${parsed.employees.join(', ')}\n\nต้องการนำเข้าลง Google Sheet หรือไม่?`)) return;
+
+    let overwrite = false;
+    if (exist.length) {
+        overwrite = confirm(
+            `เดือนต่อไปนี้มีข้อมูลในชีตอยู่แล้ว:\n${exist.map(p => MONTH_NAMES[p.month - 1]).join(', ')}\n\n` +
+            `กด OK = เขียนทับด้วยข้อมูลจากไฟล์\nกด Cancel = ข้ามเดือนเหล่านี้ (เก็บข้อมูลในชีตไว้)`);
+    }
+
+    if (isDirty() && !(await saveNow(true))) return;
+
+    showLoading('⏳ กำลังนำเข้าข้อมูล…');
+    try {
+        const res = await api('importMonths', list, overwrite);
+        savedMonths = new Set(res.savedMonths);
+        hideLoading();
+        toast('✅ นำเข้าข้อมูลเรียบร้อย!');
+        await loadMonth(cur.year, cur.month);
+    } catch (err) {
+        hideLoading();
+        toast('⚠ นำเข้าไม่สำเร็จ: ' + (err.message || err), true);
+    }
+});
+
+function parseOldHtml(text) {
+    const mData = text.match(/window\.savedData\s*=\s*([\s\S]*?);\s*window\.savedEmployees\s*=\s*(\[[\s\S]*?\])\s*;/);
+    if (!mData) throw new Error('ไม่พบ window.savedData ในไฟล์ (ไม่ใช่ไฟล์ตารางงานเวอร์ชันเก่า?)');
+    const data      = JSON.parse(mData[1]);
+    const employees = JSON.parse(mData[2]);
+    const mYear     = text.match(/const\s+YEAR\s*=\s*(\d{4})/);
+    const year      = mYear ? Number(mYear[1]) : new Date().getFullYear();
+
+    const list = [];
+    Object.keys(data).map(Number).sort((a, b) => a - b).forEach(mi => {
+        if (!(mi >= 0 && mi <= 11) || !data[mi]) return;
+        const month = mi + 1;
+        const days = {};
+        for (let d = 1; d <= daysInMonth(year, month); d++) {
+            const arr = data[mi][d] || [];
+            days[d] = employees.map((_, i) => STATUS_LABEL[arr[i]] ? arr[i] : defaultStatus(year, month, d));
+        }
+        list.push({ year, month, employees: employees.slice(), days });
+    });
+    return { year, employees, list };
+}
+
+/* =========================================================
+   พิมพ์ (คงเดิม): ปรับขนาดคอลัมน์/แถว + แทน select ด้วย div
+   ========================================================= */
+const PRINT_H_MM        = 287;
+const HEADER_RESERVE_MM = 22;
+let printStyleTag = null;
+
+window.addEventListener('beforeprint', () => {
+    if (!cur || cur.employees.length === 0) return;
+    const empPct      = ((100 - 14) / cur.employees.length).toFixed(2);
+    const rowHeightMM = ((PRINT_H_MM - HEADER_RESERVE_MM) / daysInMonth(cur.year, cur.month)).toFixed(2);
+
+    if (!printStyleTag) {
+        printStyleTag = document.createElement('style');
+        document.head.appendChild(printStyleTag);
+    }
+    printStyleTag.textContent = `
+        @media print {
+            .date-col  { width: 4% !important; }
+            .day-col   { width: 10% !important; }
+            .emp-header-cell,
+            td:not(.date-col):not(.day-col):not(.label-cell) { width: ${empPct}% !important; }
+            tbody tr   { height: ${rowHeightMM}mm !important; }
+        }`;
+
+    document.querySelectorAll('.status-select').forEach(sel => {
+        const div = document.createElement('div');
+        div.className = `status-print-div val-${sel.value}`;
+        div.textContent = STATUS_LABEL[sel.value] || sel.value;
+        div.dataset.printSub = 'true';
+        sel.parentNode.insertBefore(div, sel);
+        sel.style.display = 'none';
+    });
+});
+
+window.addEventListener('afterprint', () => {
+    if (printStyleTag) printStyleTag.textContent = '';
+    document.querySelectorAll('[data-print-sub]').forEach(div => div.remove());
+    document.querySelectorAll('.status-select').forEach(sel => { sel.style.display = ''; });
+});
+
+/* =========================================================
+   เริ่มต้น
+   ========================================================= */
+(async function init() {
+    const now = new Date();
+    showLoading('⏳ กำลังเชื่อมต่อ Google Sheet…');
+    try {
+        const res = await api('getInit');
+        holidays    = res.holidays || {};
+        savedMonths = new Set(res.savedMonths || []);
+        if (res.sheetUrl) {
+            $('sheetBtn').style.display = '';
+            $('sheetBtn').onclick = () => window.open(res.sheetUrl, '_blank');
+        }
+    } catch (err) {
+        hideLoading();
+        setStatus('error', '⚠ เชื่อมต่อไม่ได้');
+        toast('⚠ ' + (err.message || err), true);
+        return;
+    }
+    await loadMonth(now.getFullYear(), now.getMonth() + 1);
+})();
+</script>
+</body>
+</html>
