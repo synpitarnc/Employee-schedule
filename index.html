@@ -623,17 +623,66 @@ function setStatus(kind, text) {
 /* =========================================================
    Dropdown ปี / เดือน (สร้างใหม่จาก JS ทุกครั้ง → ไม่มีวันซ้ำ)
    ========================================================= */
+// ปีที่ผู้ใช้เพิ่มเอง (จำไว้ในเบราว์เซอร์ — เมื่อบันทึกข้อมูลปีนั้นแล้ว ปีจะมาจาก Google Sheet อัตโนมัติ)
+const YEARS_STORE = 'empSchedule.extraYears';
+function getExtraYears() {
+    try { return (JSON.parse(localStorage.getItem(YEARS_STORE)) || []).map(Number).filter(y => y >= 2000 && y <= 2100); }
+    catch (e) { return []; }
+}
+function addExtraYear(y) {
+    const list = new Set(getExtraYears()); list.add(y);
+    try { localStorage.setItem(YEARS_STORE, JSON.stringify([...list])); } catch (e) {}
+}
+
 function buildYearOptions(selectedYear) {
     const nowY  = new Date().getFullYear();
-    const years = new Set([nowY - 1, nowY, nowY + 1, selectedYear]);
+    const years = new Set([nowY - 1, nowY, nowY + 1, selectedYear, ...getExtraYears()]);
     savedMonths.forEach(k => years.add(Number(k.split('-')[0])));
     yearSelect.innerHTML = '';
     [...years].sort((a, b) => a - b).forEach(y => {
         const o = document.createElement('option');
-        o.value = y; o.textContent = `ปี ${y}`;
+        o.value = y;
+        o.textContent = `ปี ${y}` + ([...savedMonths].some(k => k.startsWith(y + '-')) ? '  ✓' : '');
         if (y === selectedYear) o.selected = true;
         yearSelect.appendChild(o);
     });
+    const add = document.createElement('option');
+    add.value = 'add';
+    add.textContent = '➕ เพิ่มปี…';
+    yearSelect.appendChild(add);
+}
+
+/** เพิ่มปีใหม่ แล้วเปิดเดือนมกราคมของปีนั้น */
+async function addYear() {
+    const existing = [...yearSelect.options].map(o => Number(o.value)).filter(Boolean);
+    const suggest  = Math.max(...existing) + 1;
+    const input = prompt('ใส่ปี ค.ศ. ที่ต้องการเพิ่ม (เช่น ' + suggest + ')', String(suggest));
+    if (input === null) { refreshSelectors(); return; }
+    let y = parseInt(String(input).trim(), 10);
+    if (y >= 2443 && y <= 2643) y -= 543;               // พิมพ์เป็น พ.ศ. → แปลงเป็น ค.ศ.
+    if (!(y >= 2000 && y <= 2100)) {
+        alert('ปีไม่ถูกต้อง กรุณาใส่ปี ค.ศ. ระหว่าง 2000 – 2100');
+        refreshSelectors();
+        return;
+    }
+    addExtraYear(y);
+    await changeMonth(y, y === cur.year ? cur.month : 1);
+}
+
+/** ข้อความแจ้งเตือนใต้หัวตาราง */
+function updateNotice() {
+    if (!cur) return;
+    const title = `${MONTH_NAMES[cur.month - 1]} ${cur.year}`;
+    const msgs = [];
+    if (!cur.saved) {
+        msgs.push(`ℹ️ ${title} ยังไม่มีข้อมูลในชีต — แสดงค่าเริ่มต้น (รายชื่อพนักงานคัดลอกจากเดือนก่อนหน้า) จะบันทึกเมื่อมีการแก้ไขหรือกด 💾 บันทึก`);
+    }
+    if (!Object.keys(holidays).some(k => k.startsWith(cur.year + '-'))) {
+        msgs.push(`📅 ยังไม่มีวันหยุดนักขัตฤกษ์ของปี ${cur.year} — เพิ่มได้ที่ชีต "Holidays" ใน Google Sheet (รูปแบบ ${cur.year}-01-01 | ชื่อวันหยุด)`);
+    }
+    monthNotice.innerHTML = '';
+    msgs.forEach(m => { const d = document.createElement('div'); d.textContent = m; monthNotice.appendChild(d); });
+    monthNotice.style.display = msgs.length ? '' : 'none';
 }
 
 function buildMonthOptions(year, selectedMonth) {
@@ -713,7 +762,7 @@ async function saveNow(isAuto) {
         cur.saved = true;
         savedMonths = new Set(res.savedMonths);
         refreshSelectors();
-        monthNotice.style.display = 'none';
+        updateNotice();
         if (isDirty()) {
             setStatus('dirty', '● มีการแก้ไขเพิ่ม — กำลังรอบันทึก…');
             autosaveTimer = setTimeout(() => saveNow(true), AUTOSAVE_MS);
@@ -743,7 +792,10 @@ async function changeMonth(year, month) {
 }
 
 monthSelect.addEventListener('change', () => changeMonth(cur.year, Number(monthSelect.value)));
-yearSelect.addEventListener('change',  () => changeMonth(Number(yearSelect.value), cur.month));
+yearSelect.addEventListener('change',  () => {
+    if (yearSelect.value === 'add') addYear();
+    else changeMonth(Number(yearSelect.value), cur.month);
+});
 
 window.addEventListener('beforeunload', e => {
     if (isDirty() || saving) { e.preventDefault(); e.returnValue = ''; }
@@ -781,12 +833,7 @@ function renderTable() {
     printMonthHeader.textContent = `ตารางงานประจำเดือน ${title}`;
     document.title = `ตารางงาน ${title}`;
 
-    if (!cur.saved) {
-        monthNotice.textContent = `ℹ️ ${title} ยังไม่มีข้อมูลในชีต — แสดงค่าเริ่มต้น (รายชื่อพนักงานคัดลอกจากเดือนก่อนหน้า) จะบันทึกเมื่อมีการแก้ไขหรือกด 💾 บันทึก`;
-        monthNotice.style.display = '';
-    } else {
-        monthNotice.style.display = 'none';
-    }
+    updateNotice();
 
     // Header
     while (headerRow.children.length > 2) headerRow.removeChild(headerRow.lastChild);
