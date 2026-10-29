@@ -448,6 +448,8 @@
                 <select id="yearSelect" title="เลือกปี"></select>
                 <button class="save-btn" id="saveBtn" onclick="saveNow()">💾 บันทึก</button>
                 <button class="print-btn" onclick="printSheet()">🖨️ พิมพ์</button>
+                <button class="print-btn img-btn" onclick="exportImage('png')" title="บันทึกเป็นรูป PNG ขนาด A4">🖼️ PNG</button>
+                <button class="print-btn img-btn" onclick="exportImage('jpg')" title="บันทึกเป็นรูป JPG ขนาด A4">🖼️ JPG</button>
                 <button class="import-btn" onclick="document.getElementById('importFile').click()" title="นำเข้าข้อมูลจากไฟล์ HTML เวอร์ชันเก่า">📥 นำเข้าไฟล์เดิม</button>
                 <button class="print-btn" id="sheetBtn" style="display:none" title="เปิด Google Sheet (มีชีตสรุปวันลารายไตรมาส)">📊 ชีต / สรุปวันลา</button>
                 <input type="file" id="importFile" accept=".html,.htm" style="display:none">
@@ -1001,8 +1003,9 @@ function printSheet() {
     window.print();
 }
 
-function preparePrint() {
+function preparePrint(opts) {
     if (!cur || document.body.classList.contains('printing')) return;
+    const fit = !(opts && opts.fit === false);   // false = ใช้ตอนสร้างรูป (ไม่ใช้ zoom)
     document.body.classList.add('printing');
 
     const nDays = daysInMonth(cur.year, cur.month);
@@ -1045,6 +1048,7 @@ function preparePrint() {
     // วัดความสูงจริง แล้วย่อถ้าเกินหน้า
     const sheet = document.querySelector('.container');
     sheet.style.zoom = '';
+    if (!fit) return;
     const heightPx = sheet.getBoundingClientRect().height;
     const widthPx  = sheet.getBoundingClientRect().width;
     const maxH = (PAGE_H_MM - 1) * PX_PER_MM;
@@ -1063,6 +1067,96 @@ function cleanupPrint() {
 
 window.addEventListener('beforeprint', preparePrint);   // รองรับ Ctrl+P ด้วย
 window.addEventListener('afterprint',  cleanupPrint);
+
+/* =========================================================
+   บันทึกเป็นรูปภาพขนาด A4 (PNG / JPG)
+   - ใช้เลย์เอาต์เดียวกับตอนพิมพ์
+   - รูปขนาด A4 แนวตั้ง 300 dpi = 2480 × 3508 px (ขอบ 5mm เท่ากับตอนพิมพ์)
+   ========================================================= */
+const A4_DPI    = 300;
+const A4_W_PX   = Math.round(210 / 25.4 * A4_DPI);   // 2480
+const A4_H_PX   = Math.round(297 / 25.4 * A4_DPI);   // 3508
+const MARGIN_PX = Math.round(5   / 25.4 * A4_DPI);   // 59
+const H2C_URLS  = [
+    'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+    'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
+];
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = resolve; s.onerror = () => { s.remove(); reject(new Error('load failed: ' + src)); };
+        document.head.appendChild(s);
+    });
+}
+
+async function ensureHtml2Canvas() {
+    if (window.html2canvas) return;
+    for (const url of H2C_URLS) {
+        try { await loadScript(url); if (window.html2canvas) return; } catch (e) { /* ลองลิงก์ถัดไป */ }
+    }
+    throw new Error('โหลดตัวสร้างรูปไม่ได้ (ตรวจการเชื่อมต่ออินเทอร์เน็ต)');
+}
+
+async function exportImage(format) {
+    if (!cur) return;
+    const isJpg = format === 'jpg';
+    const btns = document.querySelectorAll('.img-btn');
+    btns.forEach(b => b.disabled = true);
+    setStatus('saving', '⏳ กำลังสร้างรูป…');
+
+    try {
+        await ensureHtml2Canvas();
+        if (document.fonts && document.fonts.ready) await document.fonts.ready;
+
+        preparePrint({ fit: false });                 // เลย์เอาต์หน้ากระดาษ (ไม่ย่อด้วย zoom)
+        const sheet = document.querySelector('.container');
+        const cssW  = sheet.getBoundingClientRect().width;
+        const areaW = A4_W_PX - MARGIN_PX * 2;
+        const areaH = A4_H_PX - MARGIN_PX * 2;
+
+        let shot;
+        try {
+            shot = await html2canvas(sheet, {
+                scale: areaW / cssW,
+                backgroundColor: '#121212',
+                useCORS: true,
+                logging: false,
+                windowWidth: Math.max(document.documentElement.clientWidth, Math.ceil(cssW) + 40),
+            });
+        } finally {
+            cleanupPrint();
+        }
+
+        // วางลงกระดาษ A4: ย่อให้พอดีพื้นที่ (ถ้าจำเป็น) และจัดกึ่งกลางแนวนอน
+        const page = document.createElement('canvas');
+        page.width = A4_W_PX; page.height = A4_H_PX;
+        const ctx = page.getContext('2d');
+        ctx.fillStyle = '#121212';
+        ctx.fillRect(0, 0, A4_W_PX, A4_H_PX);
+        const k = Math.min(areaW / shot.width, areaH / shot.height);
+        const w = shot.width * k, h = shot.height * k;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(shot, MARGIN_PX + (areaW - w) / 2, MARGIN_PX, w, h);
+
+        const blob = await new Promise(res => page.toBlob(res, isJpg ? 'image/jpeg' : 'image/png', 0.92));
+        if (!blob) throw new Error('สร้างไฟล์รูปไม่สำเร็จ');
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Employee_Schedule_${cur.year}-${String(cur.month).padStart(2, '0')}.${isJpg ? 'jpg' : 'png'}`;   // ชื่อไฟล์ภาษาอังกฤษ (บางเบราว์เซอร์ไม่รองรับชื่อไทย)
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+        toast(`✅ บันทึกรูป ${isJpg ? 'JPG' : 'PNG'} (A4) เรียบร้อย!`);
+    } catch (err) {
+        toast('⚠ สร้างรูปไม่สำเร็จ: ' + (err.message || err), true);
+    } finally {
+        btns.forEach(b => b.disabled = false);
+        if (isDirty()) setStatus('dirty', '● มีการแก้ไข — กำลังรอบันทึก…');
+        else setStatus('ok', '✓ ข้อมูลจาก Google Sheet');
+    }
+}
 
 /* =========================================================
    เริ่มต้น
